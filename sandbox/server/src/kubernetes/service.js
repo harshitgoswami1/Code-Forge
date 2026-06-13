@@ -30,7 +30,7 @@ export const createService = async (sandboxId) => {
         body: serviceManifest
     });
 
-    console.log(response.body);
+    console.log(response);
 
     return response.body;
 }

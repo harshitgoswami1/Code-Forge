@@ -31,7 +31,7 @@ export async function createPod(sandboxId) {
         body: podManifest
     });
 
-    console.log(response.body);
+    console.log(response);
 
     return response.body;
 }
