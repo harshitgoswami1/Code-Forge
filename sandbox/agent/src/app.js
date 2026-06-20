@@ -118,7 +118,7 @@ app.get("/read-files", async (req, res) => {
  */
 app.patch("/update-files", async (req, res) => {
 
-    const updates = req.body.updates;
+    const updates = req.body?.updates;
 
     if (!updates || !Array.isArray(updates)) {
         return res.status(400).json({
