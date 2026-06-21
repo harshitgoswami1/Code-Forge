@@ -3,64 +3,109 @@ import { createCodeAgent } from "../agents/code.agent.js";
 
 const agentRouter = Router();
 
-const sendEvent = (res, event, data) => {
-    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-};
-
 agentRouter.post("/invoke", async (req, res) => {
-    const { prompt, sandboxId } = req.body;
+    // SSE headers
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
 
-    if (!prompt || typeof prompt !== "string") {
-        return res.status(400).json({ error: "Field 'prompt' is required and must be a string" });
-    }
-    if (!sandboxId || typeof sandboxId !== "string") {
-        return res.status(400).json({ error: "Field 'sandboxId' is required and must be a string" });
-    }
-
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
 
-    req.on('close', () => res.end());
+    // Track whether the client has disconnected.
+    // NOTE: listen on `res`, not `req` — on a POST, `req`'s "close" fires when
+    // the request body finishes being read (right after express.json()), which
+    // would mark us closed before streaming even starts.
+    let closed = false;
+
+    res.on("close", () => {
+        closed = true;
+    });
+
+    // Helper to send SSE events
+    const send = (event) => {
+        if (closed) return;
+
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+    };
+
+    // Notify the client that the stream is ready
+    send({
+        type: "connected",
+    });
 
     try {
+        const { prompt, sandboxId } = req.body;
+
+        if (!prompt || typeof prompt !== "string") {
+            send({
+                type: "error",
+                message: "Field 'prompt' is required and must be a string",
+            });
+
+            return res.end();
+        }
+
+        if (!sandboxId || typeof sandboxId !== "string") {
+            send({
+                type: "error",
+                message: "Field 'sandboxId' is required and must be a string",
+            });
+
+            return res.end();
+        }
+
         const baseUrl = `http://sandbox-service-${sandboxId}:3000`;
         const agent = createCodeAgent(baseUrl);
 
-        const eventStream = agent.streamEvents(
-            { messages: [{ role: "user", content: prompt }] },
-            { version: "v2" }
+        // Stream with custom mode so tools' config.writer(...) events flow out,
+        // and values mode so we can grab the final assistant message.
+        const stream = await agent.stream(
+            {
+                messages: [{ role: "user", content: prompt }],
+            },
+            {
+                streamMode: ["custom", "values"],
+            }
         );
 
-        for await (const event of eventStream) {
-            switch (event.event) {
-                case "on_chat_model_stream": {
-                    const token = event.data?.chunk?.content;
-                    if (token) sendEvent(res, "token", { token });
-                    break;
-                }
-                case "on_tool_start":
-                    sendEvent(res, "tool_start", { name: event.name, input: event.data?.input });
-                    break;
-                case "on_tool_end":
-                    sendEvent(res, "tool_end", { name: event.name, output: event.data?.output });
-                    break;
-                case "on_chain_end":
-                    if (event.name === "LangGraph") {
-                        const msgs = event.data?.output?.messages;
-                        const last = msgs?.[msgs.length - 1];
-                        if (last?.content) sendEvent(res, "done", { message: last.content });
-                    }
-                    break;
+        let finalState;
+
+        for await (const [mode, data] of stream) {
+            if (closed) break;
+
+            if (mode === "custom") {
+                // Tool events emitted via config.writer inside the tools.
+                send(data);
+            } else if (mode === "values") {
+                finalState = data;
             }
         }
 
-        sendEvent(res, "end", {});
+        const messages = finalState?.messages ?? [];
+        const last = messages[messages.length - 1];
+        const content = last?.content;
+
+        send({
+            type: "message",
+            content:
+                typeof content === "string"
+                    ? content
+                    : JSON.stringify(content ?? ""),
+        });
+
+        send({
+            type: "done",
+        });
+
+        res.end();
     } catch (error) {
-        console.error("Error invoking agent:", error);
-        sendEvent(res, "error", { message: error.message ?? "Internal server error" });
-    } finally {
+        console.error(error);
+
+        send({
+            type: "error",
+            message: error?.message ?? "Internal server error",
+        });
+
         res.end();
     }
 });

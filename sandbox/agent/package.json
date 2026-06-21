@@ -16,6 +16,7 @@
     "fs": "^0.0.1-security",
     "morgan": "^1.11.0",
     "node-pty": "^1.1.0",
+    "os": "^0.1.2",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {

@@ -47,17 +47,38 @@ function getAgentProxy(sandboxId) {
     return agentProxies[ sandboxId ];
 }
 
+// Resolve the right proxy for an incoming host header (or null if unknown).
+function resolveProxy(host) {
+    if (!host) return null;
+
+    const [ sandboxId, kind ] = host.split('.');
+
+    if (kind === 'agent') return getAgentProxy(sandboxId);
+    if (kind === 'preview') return getProxy(sandboxId);
+
+    return null;
+}
+
 app.use((req, res, next) => {
-    const host = req.headers.host;
-    const sandboxId = host.split('.')[ 0 ]; // Extract sandboxId from subdomain
+    const proxy = resolveProxy(req.headers.host);
 
-    if (host.split('.')[ 1 ] === 'agent') {
-        return getAgentProxy(sandboxId)(req, res, next);
-    }
+    if (!proxy) return next();
 
-    else if (host.split('.')[ 1 ] === 'preview') {
-        return getProxy(sandboxId)(req, res, next);
-    }
+    return proxy(req, res, next);
 })
+
+// WebSocket upgrade handler — must be attached to the HTTP server's "upgrade"
+// event (Express middleware never sees upgrades). Without this, Vite HMR's
+// WebSocket can't connect through the router and the preview reload-loops.
+export function handleUpgrade(req, socket, head) {
+    const proxy = resolveProxy(req.headers.host);
+
+    if (!proxy) {
+        socket.destroy();
+        return;
+    }
+
+    proxy.upgrade(req, socket, head);
+}
 
 export default app

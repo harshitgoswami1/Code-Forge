@@ -1,0 +1,119 @@
+http://localhost/api/sandbox/start
+Spins up backend containers and returns sandboxID, previewURL, agentUrl
+Response:
+{
+    "message": "Sandbox environment create successfully",
+    "sandbox": "019eeb99-d454-72b0-b854-9a55118a35ba",
+    "previewUrl": "http://019eeb99-d454-72b0-b854-9a55118a35ba.preview.localhost",
+    "agentUrl": "http://019eeb99-d454-72b0-b854-9a55118a35ba.agent.localhost"
+}
+
+
+GET http://019eeb99-d454-72b0-b854-9a55118a35ba.agent.localhost/list-files
+Response:
+{
+    "message": "Files listed successfully",
+    "files": [
+        ".dockerignore",
+        ".gitignore",
+        "README.md",
+        "dockerfile",
+        "eslint.config.js",
+        "index.html",
+        "package-lock.json",
+        "package.json",
+        "public/favicon.svg",
+        "public/icons.svg",
+        "src/App.jsx",
+        "src/index.css",
+        "src/main.jsx",
+        "vite.config.js"
+    ]
+}
+
+
+GET http://019eeb99-d454-72b0-b854-9a55118a35ba.agent.localhost/read-files?files=src/App.jsx
+{
+    "message": "File contents",
+    "files": [
+        {
+            "/src/App.jsx": "import React from \"react\";\n\nconst App = () => {\n  return (\n    <main className=\"min-h-screen bg-amber-100 flex items-center justify-center px-6\">\n      <section className=\"max-w-4xl mx-auto text-center\">\n\n        {/* Heading */}\n        <h1 className=\"mt-10 text-5xl font-light leading-none tracking-[-0.05em] text-neutral-950 md:text-6xl lg:text-7xl\">\n          Turn ideas into\n          <br />\n          <span className=\"font-extrabold\">beautiful interfaces</span>\n        </h1>\n\n        {/* Description */}\n        <p className=\"mx-auto mt-8 max-w-2xl text-base leading-7 text-neutral-500 md:text-lg\">\n          Build production-ready React applications with natural language.\n          Generate pages, components, and layouts instantly while previewing\n          every change in real time.\n        </p>\n\n        {/* Buttons */}\n        <div className=\"mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row\">\n\n          <button className=\"flex items-center gap-2 rounded-xl bg-neutral-950 px-7 py-3 text-base font-semibold text-white transition hover:bg-black\">\n            Preview\n          </button>\n        </div>\n      </section>\n    </main>\n  );\n};\n\nexport default App;"
+        }
+    ]
+}
+
+
+POST http://019eeb99-d454-72b0-b854-9a55118a35ba.agent.localhost/create-files
+Body
+{
+  "files": [
+    {
+      "file": "src/app1.js",
+      "content": "console.log('Hello World');"
+    },
+    {
+      "file": "README1.md",
+      "content": "# Sandbox Project"
+    }
+  ]
+}
+Output
+{
+    "message": "File creation results",
+    "results": [
+        {
+            "src/app1.js": "File created successfully"
+        },
+        {
+            "README1.md": "File created successfully"
+        }
+    ]
+}
+
+
+
+
+PATCH http://019eeb99-d454-72b0-b854-9a55118a35ba.agent.localhost/update-files
+Body:
+{
+  "updates": [
+    {
+      "file": "README1.md",
+      "content": "# Updated Sandbox Project"
+    }
+  ]
+}
+{
+  "updates": [
+    {
+      "file": "README1.md",
+      "content": "# Updated Sandbox Project"
+    }
+  ]
+}
+
+POST http://localhost/api/ai/invoke
+Body
+{
+    "prompt": "change the background of App.jsx to pink ",
+    "sandboxId": "019eeb99-d454-72b0-b854-9a55118a35ba"
+}
+These are server sent events
+{"type":"done"}
+00:29:06.581
+{"type":"message","content":"[{\"type\":\"text\",\"text\":\"Summary:\\n- Modified `src/App.jsx` to update the heading text from “beautiful interfaces” to “Experiences” and switched the main background
+00:44:52.308
+{"type":"tool","tool":"update_files","status":"complete","message":"1 file(s) updated successfully.","timestamp":1782069290889,"updatedFiles":["src/App.jsx"]}
+00:44:50.905
+{"type":"tool","tool":"update_files","status":"start","message":"Updating 1 file(s)...","timestamp":1782069290867,"files":["src/App.jsx"]}
+00:44:50.877
+{"type":"tool","tool":"read_files","status":"complete","message":"Files read successfully.","timestamp":1782069286209,"fileCount":2}
+00:44:46.221
+{"type":"tool","tool":"read_files","status":"start","message":"Reading 2 file(s)...","timestamp":1782069286200,"files":["src/App.jsx","src/index.css"]}
+00:44:46.208
+{"type":"tool","tool":"list_files","status":"complete","message":"Done","timestamp":1782069283981}
+00:44:44.040
+{"type":"tool","tool":"list_files","status":"start","message":"Listing project files...","timestamp":1782069283949}
+00:44:43.967
+{"type":"connected"}
+00:44:42.058

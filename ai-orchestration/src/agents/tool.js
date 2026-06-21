@@ -1,106 +1,230 @@
-import axios from 'axios';
-import { tool } from "langchain"
+import axios from "axios";
+import { tool } from "langchain";
 import * as z from "zod";
+
+// Helper to emit tool events
+const emit = (config, tool, status, message, extra = {}) => {
+    config.writer?.({
+        type: "tool",
+        tool,
+        status,
+        message,
+        timestamp: Date.now(),
+        ...extra,
+    });
+};
 
 // Build the file tools bound to a specific sandbox base URL (per request).
 export const createTools = (baseUrl) => {
     const listFiles = tool(
-        async ({}) => {
-            console.log("=================================")
-            console.log("using list files tool", baseUrl)
-            console.log("=================================")
+        async (_, config) => {
+            emit(config, "list_files", "start", "Listing project files...");
 
-            const response = await axios.get(`${baseUrl}/list-files`)
+            try {
+                const response = await axios.get(`${baseUrl}/list-files`);
 
-            console.log("=================================")
-            console.log("response from list files tool", response.data)
-            console.log("=================================")
+                emit(config, "list_files", "complete", "Done");
+                return JSON.stringify(response.data.files);
 
-            return JSON.stringify(response.data.files);
+                
+            } catch (err) {
+                emit(
+                    config,
+                    "list_files",
+                    "error",
+                    err.message
+                );
+                throw err;
+            }
         },
         {
             name: "list_files",
-            description: "List all the files in the project directory. This is useful for understanding what files are available to work with.",
-            schema: z.object({})
+            description:
+                "List all files in the project directory.",
+            schema: z.object({}),
         }
-    )
+    );
 
     const readFiles = tool(
-        async ({ files }) => {
-            console.log("=================================")
-            console.log("using read files tool with files", files)
-            console.log("=================================")
+        async ({ files }, config) => {
+            emit(
+                config,
+                "read_files",
+                "start",
+                `Reading ${files.length} file(s)...`,
+                { files }
+            );
 
-            const response = await axios.get(`${baseUrl}/read-files?files=` + files.join(","))
+            try {
+                const response = await axios.get(`${baseUrl}/read-files`, {
+                    params: { files: files.join(",") },
+                });
 
-            console.log("=================================")
-            console.log("response from read files tool", response.data)
-            console.log("=================================")
-            return JSON.stringify(response.data);
+                emit(
+                    config,
+                    "read_files",
+                    "complete",
+                    "Files read successfully.",
+                    {
+                        fileCount: files.length,
+                    }
+                );
+
+                return JSON.stringify(response.data);
+            } catch (err) {
+                emit(
+                    config,
+                    "read_files",
+                    "error",
+                    err.message
+                );
+                throw err;
+            }
         },
         {
             name: "read_files",
-            description: "Read the contents of specified files. This is useful for understanding the content of files that are relevant to the task at hand.",
+            description:
+                "Read the contents of specified files.",
             schema: z.object({
-                files: z.array(z.string()).describe("The list of files absolute paths to read. These should be files that were listed using the list_files tool or created later")
-            })
+                files: z
+                    .array(z.string())
+                    .describe(
+                        "Paths of the files to read, relative to the project root (e.g. \"src/App.jsx\")."
+                    ),
+            }),
         }
-    )
+    );
 
     const updateFiles = tool(
-        async ({ files }) => {
-            console.log("=================================")
-            console.log("using update files tool with files", files)
-            console.log("=================================")
+        async ({ files }, config) => {
+            emit(
+                config,
+                "update_files",
+                "start",
+                `Updating ${files.length} file(s)...`,
+                {
+                    files: files.map((f) => f.file),
+                }
+            );
 
-            const response = await axios.patch(`${baseUrl}/update-files`, {
-                updates: files
-            })
-            console.log("=================================")
-            console.log("response from update files tool", response.data)
-            console.log("=================================")
+            try {
+                const response = await axios.patch(
+                    `${baseUrl}/update-files`,
+                    {
+                        updates: files,
+                    }
+                );
 
-            return JSON.stringify(response.data.results);
+                emit(
+                    config,
+                    "update_files",
+                    "complete",
+                    `${files.length} file(s) updated successfully.`,
+                    {
+                        updatedFiles: files.map((f) => f.file),
+                    }
+                );
+
+                return JSON.stringify(response.data.results);
+            } catch (err) {
+                emit(
+                    config,
+                    "update_files",
+                    "error",
+                    err.message
+                );
+                throw err;
+            }
         },
         {
             name: "update_files",
-            description: "Update the contents of specified files. This is useful for making changes to files based on the requirements of the task at hand. this tool can also use to create new files by providing a new file name in the file field and the content to be added in the content field.",
+            description:
+                "Update existing files or create new ones if they don't exist.",
             schema: z.object({
-                files: z.array(z.object({
-                    file: z.string().describe("The relative path of the file to update, e.g. src/App.jsx"),
-                    content: z.string().describe("The new content for the file, the content should support json format.")
-                })).describe("The list of files to update and their new contents")
-            })
+                files: z.array(
+                    z.object({
+                        file: z
+                            .string()
+                            .describe(
+                                "Relative path of the file."
+                            ),
+                        content: z
+                            .string()
+                            .describe("Updated file contents."),
+                    })
+                ),
+            }),
         }
-    )
+    );
 
     const createFile = tool(
-        async ({ files }) => {
-            console.log("=================================")
-            console.log("using create file tool with files", files)
-            console.log("=================================")
+        async ({ files }, config) => {
+            emit(
+                config,
+                "create_file",
+                "start",
+                `Creating ${files.length} file(s)...`,
+                {
+                    files: files.map((f) => f.file),
+                }
+            );
 
-            const response = await axios.post(`${baseUrl}/create-files`, {
-                files
-            })
+            try {
+                const response = await axios.post(
+                    `${baseUrl}/create-files`,
+                    {
+                        files,
+                    }
+                );
 
-            console.log("=================================")
-            console.log("response from create file tool", response.data)
-            console.log("=================================")
+                emit(
+                    config,
+                    "create_file",
+                    "complete",
+                    `${files.length} file(s) created successfully.`,
+                    {
+                        createdFiles: files.map((f) => f.file),
+                    }
+                );
 
-            return JSON.stringify(response.data.results);
+                return JSON.stringify(response.data.results);
+            } catch (err) {
+                emit(
+                    config,
+                    "create_file",
+                    "error",
+                    err.message
+                );
+                throw err;
+            }
         },
         {
             name: "create_file",
-            description: "Create new files with specified content. Use this to create files that do not yet exist in the project directory.",
+            description:
+                "Create new files with specified content.",
             schema: z.object({
-                files: z.array(z.object({
-                    file: z.string().describe("The relative path of the file to create, e.g. src/utils/helper.js"),
-                    content: z.string().describe("The content to write into the new file")
-                })).describe("The list of files to create and their contents")
-            })
+                files: z.array(
+                    z.object({
+                        file: z
+                            .string()
+                            .describe(
+                                "Relative path of the new file."
+                            ),
+                        content: z
+                            .string()
+                            .describe(
+                                "Contents of the new file."
+                            ),
+                    })
+                ),
+            }),
         }
-    )
+    );
 
-    return [listFiles, readFiles, updateFiles, createFile];
-}
+    return [
+        listFiles,
+        readFiles,
+        updateFiles,
+        createFile,
+    ];
+};
