@@ -13,8 +13,9 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@langchain/core": "^1.2.0",
+    "@langchain/core": "^1.2.1",
     "@langchain/langgraph": "^1.4.4",
+    "@langchain/mistralai": "^1.2.0",
     "@langchain/openai": "^1.4.7",
     "@langchain/openrouter": "^0.3.0",
     "axios": "^1.18.0",

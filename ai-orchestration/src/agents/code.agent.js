@@ -2,15 +2,22 @@ import 'dotenv/config';
 import { createAgent } from "langchain";
 import { createTools } from "./tool.js";
 import { ChatOpenAI } from "@langchain/openai";
+import { ChatMistralAI } from "@langchain/mistralai"
 
-const model = new ChatOpenAI({
-    model: "gpt-5.1-codex",
-    apiKey: process.env.OPENROUTER_API_KEY,
-    configuration: {
-        baseURL: "https://openrouter.ai/api/v1",  // point to OpenRouter
-    },
-    temperature: 0,
-});
+const model = new ChatMistralAI({
+  model: "codestral-latest",
+  apiKey: process.env.MISTRAL_API_KEY,
+  temperature: 0,
+})
+
+// const model = new ChatOpenAI({
+//     model: "gpt-5.1-codex",
+//     apiKey: process.env.OPENROUTER_API_KEY,
+//     configuration: {
+//         baseURL: "https://openrouter.ai/api/v1",  // point to OpenRouter
+//     },
+//     temperature: 0,
+// });
 
 const systemMessage = `
 You are CodeForge, an expert AI frontend engineer specializing in building production-quality React applications inside a sandboxed React + Vite project.
