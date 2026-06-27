@@ -1,14 +1,16 @@
 import { useState } from "react";
-import { Code2, Columns2, Monitor, Radio } from "lucide-react";
+import { Code2, Columns2, Monitor, Radio, TerminalSquare } from "lucide-react";
 import ChatPanel from "./ChatPanel.jsx";
 import FileExplorer from "./FileExplorer.jsx";
 import CodeViewer from "./CodeViewer.jsx";
 import PreviewPane from "./PreviewPane.jsx";
+import Terminal from "./Terminal.jsx";
 
 const VIEWS = [
   { id: "split", label: "Split", icon: Columns2 },
   { id: "code", label: "Code", icon: Code2 },
   { id: "preview", label: "Preview", icon: Monitor },
+  { id: "terminal", label: "Terminal", icon: TerminalSquare },
 ];
 
 export default function AppShell(b) {
@@ -18,6 +20,7 @@ export default function AppShell(b) {
 
   const showCode = view === "code" || view === "split";
   const showPreview = view === "preview" || view === "split";
+  const showTerminal = view === "terminal";
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
@@ -85,8 +88,8 @@ export default function AppShell(b) {
             })}
           </div>
 
-          <div className="flex min-h-0 flex-1">
-            {showCode && (
+          <div className="relative flex min-h-0 flex-1">
+            {!showTerminal && showCode && (
               <div
                 className={`min-w-0 ${showPreview ? "w-1/2 border-r border-line" : "flex-1"}`}
               >
@@ -97,7 +100,7 @@ export default function AppShell(b) {
                 />
               </div>
             )}
-            {showPreview && (
+            {!showTerminal && showPreview && (
               <div className={`min-w-0 ${showCode ? "w-1/2" : "flex-1"}`}>
                 <PreviewPane
                   previewUrl={b.session?.previewUrl}
@@ -107,6 +110,13 @@ export default function AppShell(b) {
                 />
               </div>
             )}
+            {/* terminal stays mounted so the shell session + socket persist
+                across view switches; only its visibility toggles */}
+            <div
+              className={`absolute inset-0 ${showTerminal ? "" : "hidden"}`}
+            >
+              <Terminal agentUrl={b.session?.agentUrl} active={showTerminal} />
+            </div>
           </div>
         </main>
       </div>

@@ -23,10 +23,14 @@ function getProxy(sandboxId) {
     const target = `http://sandbox-service-${sandboxId}`; // Construct target URL based on sandboxId
 
     if (!proxies[ sandboxId ]) {
+        // NOTE: no `ws: true`. With it, http-proxy-middleware registers its OWN
+        // server "upgrade" listener (after the first HTTP request), which races
+        // the manual handleUpgrade() below. hpm's listener forwards the upgrade
+        // unmodified, re-introducing permessage-deflate → intermittent
+        // "RSV1 must be clear". We drive upgrades only through handleUpgrade().
         proxies[ sandboxId ] = createProxyMiddleware({
             target,
             changeOrigin: true,
-            ws: true,
         })
     }
     return proxies[ sandboxId ];
@@ -40,7 +44,6 @@ function getAgentProxy(sandboxId) {
         agentProxies[ sandboxId ] = createProxyMiddleware({
             target,
             changeOrigin: true,
-            ws: true,
         })
     }
 
@@ -77,6 +80,14 @@ export function handleUpgrade(req, socket, head) {
         socket.destroy();
         return;
     }
+
+    // Disable WebSocket per-message compression (permessage-deflate). The proxy
+    // chain (ingress → router → vite) desyncs the extension negotiation: vite
+    // ends up compressing frames (RSV1 bit set) while the browser's socket was
+    // told no compression, so it rejects every frame with
+    // "Invalid WebSocket frame: RSV1 must be clear" and reload-loops. Stripping
+    // the offer on the last hop before vite means vite never compresses.
+    delete req.headers[ 'sec-websocket-extensions' ];
 
     proxy.upgrade(req, socket, head);
 }

@@ -15,6 +15,7 @@ app.use(morgan('dev'));
 app.use(cookies());
 app.use(passport.initialize());
 
+
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,

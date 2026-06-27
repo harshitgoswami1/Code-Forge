@@ -25,4 +25,13 @@ export default defineConfig({
       ignored: ['**/node_modules/**', '**/dist/**'],
     },
   },
+  // Vite 8 guards the HMR WebSocket with a per-server token (anti-hijack). The
+  // token can't round-trip reliably through the ingress → router proxy chain,
+  // so vite rejects every browser HMR socket (browsers always send an Origin)
+  // and the client falls into a reconnect → location.reload() loop. The router
+  // is a trusted internal proxy, so skip the token check; allowedHosts:true
+  // already disables the companion Host check.
+  legacy: {
+    skipWebSocketTokenCheck: true,
+  },
 })

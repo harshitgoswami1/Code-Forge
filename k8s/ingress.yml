@@ -39,6 +39,7 @@ spec:
             name: ai-service
             port: 
               number: 80
+  
   - http:
       paths:
       - pathType: Prefix
